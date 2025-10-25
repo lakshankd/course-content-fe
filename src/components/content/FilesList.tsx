@@ -1,40 +1,25 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { FileCard } from "./FileCard";
-import { fileUploadService } from "@/services";
 import type { FileItem } from "@/services/fileUploadService";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RefreshCw, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { fetchFiles, clearError } from "@/store/slices/filesSlice";
 
 interface FilesListProps {
   refreshTrigger?: number;
 }
 
 export function FilesList({ refreshTrigger = 0 }: FilesListProps) {
-  const [files, setFiles] = useState<FileItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const dispatch = useAppDispatch();
+  const { files, loading, error } = useAppSelector((state) => state.files);
 
   const loadFiles = async (isRefreshing = false) => {
-    if (isRefreshing) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
-
-    try {
-      const filesData = await fileUploadService.getAllFiles();
-      setFiles(filesData);
-    } catch (err: any) {
-      setError(err.message || "Failed to load files");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+    dispatch(clearError());
+    await dispatch(fetchFiles());
   };
 
   useEffect(() => {
@@ -50,7 +35,11 @@ export function FilesList({ refreshTrigger = 0 }: FilesListProps) {
     window.open(file.fileUrl, "_blank");
   };
 
-  if (loading && !refreshing) {
+  const handleClearError = () => {
+    dispatch(clearError());
+  };
+
+  if (loading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[...Array(6)].map((_, index) => (
@@ -64,16 +53,16 @@ export function FilesList({ refreshTrigger = 0 }: FilesListProps) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          {error}
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-4"
-            onClick={handleRefresh}
-          >
-            Try Again
-          </Button>
+        <AlertDescription className="flex items-center justify-between">
+          <span>{error}</span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleClearError}>
+              Dismiss
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleRefresh}>
+              Try Again
+            </Button>
+          </div>
         </AlertDescription>
       </Alert>
     );
@@ -88,12 +77,12 @@ export function FilesList({ refreshTrigger = 0 }: FilesListProps) {
           variant="outline"
           size="sm"
           onClick={handleRefresh}
-          disabled={refreshing}
+          disabled={loading}
         >
           <RefreshCw
-            className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
+            className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
           />
-          {refreshing ? "Refreshing..." : "Refresh"}
+          {loading ? "Refreshing..." : "Refresh"}
         </Button>
       </div>
 

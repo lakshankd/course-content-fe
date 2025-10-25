@@ -1,9 +1,9 @@
 import { configureStore } from "@reduxjs/toolkit";
-import counterReducer from "./slices/counterSlice";
+import filesReducer from "./slices/filesSlice";
 
 export const store = configureStore({
   reducer: {
-    counter: counterReducer,
+    files: filesReducer,
   },
 });
 

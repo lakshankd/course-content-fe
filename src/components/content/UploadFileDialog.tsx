@@ -13,16 +13,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fileUploadService } from "@/services";
+import { useAppDispatch } from "@/store/hooks";
+import { uploadFile, fetchFiles, clearError } from "@/store/slices/filesSlice";
 
 interface UploadFileDialogProps {
   onUploadSuccess?: (response: any) => void;
 }
 
 export function UploadFileDialog({ onUploadSuccess }: UploadFileDialogProps) {
+  const dispatch = useAppDispatch();
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const { uploadLoading, uploadError } = useAppSelector((state) => state.files);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0] || null;
@@ -31,11 +33,8 @@ export function UploadFileDialog({ onUploadSuccess }: UploadFileDialogProps) {
       // Validate file type
       if (fileUploadService.isValidFileType(selectedFile)) {
         setFile(selectedFile);
-        setError(null);
+        dispatch(clearError());
       } else {
-        setError(
-          "Invalid file type. Please select PDF, MP4, JPG, JPEG, or PNG files."
-        );
         setFile(null);
       }
     }
@@ -45,15 +44,11 @@ export function UploadFileDialog({ onUploadSuccess }: UploadFileDialogProps) {
     event.preventDefault();
 
     if (!file) {
-      setError("Please select a file");
       return;
     }
 
-    setLoading(true);
-    setError(null);
-
     try {
-      const response = await fileUploadService.uploadFile(file);
+      const result = await dispatch(uploadFile(file)).unwrap();
 
       // Reset form
       setFile(null);
@@ -61,14 +56,16 @@ export function UploadFileDialog({ onUploadSuccess }: UploadFileDialogProps) {
 
       // Notify parent component
       if (onUploadSuccess) {
-        onUploadSuccess(response);
+        onUploadSuccess(result);
       }
 
-      console.log("Upload successful:", response);
-    } catch (err: any) {
-      setError(err.message || "Failed to upload file");
-    } finally {
-      setLoading(false);
+      // Refresh files list
+      dispatch(fetchFiles());
+
+      console.log("Upload successful:", result);
+    } catch (error) {
+      // Error is handled by Redux
+      console.error("Upload failed:", error);
     }
   };
 
@@ -76,7 +73,7 @@ export function UploadFileDialog({ onUploadSuccess }: UploadFileDialogProps) {
     if (!isOpen) {
       // Reset form when dialog closes
       setFile(null);
-      setError(null);
+      dispatch(clearError());
     }
     setOpen(isOpen);
   };
@@ -123,21 +120,21 @@ export function UploadFileDialog({ onUploadSuccess }: UploadFileDialogProps) {
             </div>
 
             {/* Error Display */}
-            {error && (
+            {uploadError && (
               <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md border border-red-200">
-                {error}
+                {uploadError}
               </div>
             )}
           </div>
 
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={loading}>
+              <Button type="button" variant="outline" disabled={uploadLoading}>
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" disabled={loading || !file}>
-              {loading ? "Uploading..." : "Upload File"}
+            <Button type="submit" disabled={uploadLoading || !file}>
+              {uploadLoading ? "Uploading..." : "Upload File"}
             </Button>
           </DialogFooter>
         </form>
@@ -145,3 +142,6 @@ export function UploadFileDialog({ onUploadSuccess }: UploadFileDialogProps) {
     </Dialog>
   );
 }
+
+// Add this import at the top
+import { useAppSelector } from "@/store/hooks";
